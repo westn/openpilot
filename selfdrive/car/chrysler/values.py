@@ -20,6 +20,45 @@ class CAR:
   JEEP_CHEROKEE = "JEEP GRAND CHEROKEE V6 2018"  # includes 2017 Trailhawk
   JEEP_CHEROKEE_2019 = "JEEP GRAND CHEROKEE 2019" # includes 2020 Trailhawk
 
+
+FW_VERSIONS = {
+  CAR.PACIFICA_2019_HYBRID: {
+    (Ecu.engine, 0x7e0, None): [
+      b'\xf1\x9400000000XX',  # placeholder
+    ],
+    (Ecu.transmission, 0x7e1, None): [
+      b'\xf1\x3200000000XX',  # placeholder
+    ],
+    (Ecu.eps, 0x75a, None): [
+      b'\xf1\x3268460392AA',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x3268540436AA',
+    ],
+    (Ecu.fwdCamera, 0x764, None): [
+      b'\xf1\x3268493395AA'
+    ],
+  },
+  CAR.JEEP_CHEROKEE: {
+    (Ecu.engine, 0x7e0, None): [
+      b'\xf1\x9400000000XX',  # placeholder
+    ],
+    (Ecu.transmission, 0x7e1, None): [
+      b'\xf1\x3200000000XX',  # placeholder
+    ],
+    (Ecu.eps, 0x75a, None): [
+      b'\xf1\x3268321646AC',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x3204672627AB',
+    ],
+    (Ecu.fwdCamera, 0x764, None): [
+      b'\xf1\x3204672631AC'
+    ],
+  },
+}
+
+
 # Unique CAN messages:
 # Only the hybrids have 270: 8
 # Only the gas have 55: 8, 416: 7
