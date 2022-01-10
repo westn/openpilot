@@ -24,36 +24,36 @@ class CAR:
 FW_VERSIONS = {
   CAR.PACIFICA_2019_HYBRID: {
     (Ecu.engine, 0x7e0, None): [
-      b'\xf1\x9400000000XX',  # placeholder
+      b'00000000XX',  # placeholder
     ],
     (Ecu.transmission, 0x7e1, None): [
-      b'\xf1\x3200000000XX',  # placeholder
+      b'00000000XX',  # placeholder
     ],
     (Ecu.eps, 0x75a, None): [
-      b'\xf1\x3268460392AA',
+      b'68460392AA',
     ],
     (Ecu.fwdRadar, 0x757, None): [
-      b'\xf1\x3268540436AA',
+      b'68540436AA',
     ],
     (Ecu.fwdCamera, 0x764, None): [
-      b'\xf1\x3268493395AA'
+      b'68493395AA'
     ],
   },
   CAR.JEEP_CHEROKEE: {
     (Ecu.engine, 0x7e0, None): [
-      b'\xf1\x9400000000XX',  # placeholder
+      b'00000000XX',  # placeholder
     ],
     (Ecu.transmission, 0x7e1, None): [
-      b'\xf1\x3200000000XX',  # placeholder
+      b'00000000XX',  # placeholder
     ],
     (Ecu.eps, 0x75a, None): [
-      b'\xf1\x3268321646AC',
+      b'68321646AC',
     ],
     (Ecu.fwdRadar, 0x757, None): [
-      b'\xf1\x3204672627AB',
+      b'04672627AB',
     ],
     (Ecu.fwdCamera, 0x764, None): [
-      b'\xf1\x3204672631AC'
+      b'04672631AC'
     ],
   },
 }
