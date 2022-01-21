@@ -5,7 +5,7 @@ from cereal import log
 from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
-from selfdrive.car import apply_toyota_steer_torque_limits
+from selfdrive.car import apply_std_steer_torque_limits, apply_toyota_steer_torque_limits
 from selfdrive.car.toyota.values import CarControllerParams
 from selfdrive.controls.lib.drive_helpers import get_steer_max
 
@@ -35,7 +35,7 @@ class LatControlINDI():
     self.A_K = A - np.dot(K, C)
     self.x = np.array([[0.], [0.], [0.]])
 
-    self.enforce_rate_limit = CP.carName == "toyota"
+    self.use_toyota_rate_limit = CP.carName == "toyota"
 
     self._RC = (CP.lateralTuning.indi.timeConstantBP, CP.lateralTuning.indi.timeConstantV)
     self._G = (CP.lateralTuning.indi.actuatorEffectivenessBP, CP.lateralTuning.indi.actuatorEffectivenessV)
@@ -123,14 +123,14 @@ class LatControlINDI():
         delta_u = 0
 
       # Enforce rate limit
-      if self.enforce_rate_limit:
-        steer_max = float(CarControllerParams.STEER_MAX)
-        new_output_steer_cmd = steer_max * (self.steer_filter.x + delta_u)
-        prev_output_steer_cmd = steer_max * self.output_steer
+      steer_max = float(CarControllerParams.STEER_MAX)
+      new_output_steer_cmd = steer_max * (self.steer_filter.x + delta_u)
+      prev_output_steer_cmd = steer_max * self.output_steer
+      if self.use_toyota_rate_limit:
         new_output_steer_cmd = apply_toyota_steer_torque_limits(new_output_steer_cmd, prev_output_steer_cmd, prev_output_steer_cmd, CarControllerParams)
-        self.output_steer = new_output_steer_cmd / steer_max
       else:
-        self.output_steer = self.steer_filter.x + delta_u
+        new_output_steer_cmd = apply_std_steer_torque_limits(new_output_steer_cmd, prev_output_steer_cmd, prev_output_steer_cmd, CarControllerParams)
+      self.output_steer = new_output_steer_cmd / steer_max
 
       steers_max = get_steer_max(CP, CS.vEgo)
       self.output_steer = clip(self.output_steer, -steers_max, steers_max)
