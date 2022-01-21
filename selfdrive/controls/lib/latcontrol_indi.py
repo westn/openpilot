@@ -6,7 +6,7 @@ from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from selfdrive.car import apply_std_steer_torque_limits, apply_toyota_steer_torque_limits
-from selfdrive.car.toyota.values import CarControllerParams
+from selfdrive.car.volkswagen.values import CarControllerParams
 from selfdrive.controls.lib.drive_helpers import get_steer_max
 
 
