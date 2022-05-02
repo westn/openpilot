@@ -46,7 +46,7 @@ class CarController():
 
         # FIXME: this needs to become a proper state machine
         acc_hold_request, acc_hold_release, acc_hold_type, stopping_distance = False, False, 0, 20.46
-        if actuators.longControlState == LongCtrlState.stopping and CS.out.vEgo < 0.4:
+        if actuators.longControlState == LongCtrlState.stopping:
           self.acc_stopping = True
           acc_hold_request = True
           if CS.esp_hold_confirmation:
@@ -65,9 +65,8 @@ class CarController():
         else:
           self.acc_stopping, self.acc_starting = False, False
 
-        cb_pos = 0.0 if lead_visible or CS.out.vEgo < 2.0 else 0.1  # react faster to lead cars, also don't get hung up at DSG clutch release/kiss points when creeping to stop
-        #cb_neg = 0.0 if accel < 0 else 0.2  # IDK why, but stock likes to zero this out when accel is negative
-        cb_neg = 0.2  # try allowing more deviation to the low side, see if this helps with decelerating and harshness
+        cb_pos = 0.1 if lead_visible or CS.out.vEgo < 2.0 else 0.2
+        cb_neg = 0.2
 
         idx = (frame / P.ACC_CONTROL_STEP) % 16
         can_sends.append(volkswagencan.create_mqb_acc_06_control(self.packer_pt, CANBUS.pt, c.longActive, acc_status,
