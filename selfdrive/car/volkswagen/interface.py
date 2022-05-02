@@ -69,7 +69,7 @@ class CarInterface(CarInterfaceBase):
     ret.pcmCruise = not ret.openpilotLongitudinalControl
     ret.longitudinalActuatorDelayUpperBound = 0.5  # s
     ret.stoppingControl = True
-    ret.vEgoStopping = 0.5
+    ret.vEgoStopping = 1.0
     ret.stopAccel = 0.0
     ret.longitudinalTuning.kpV = [0.2]
     ret.longitudinalTuning.kiV = [0.0]
