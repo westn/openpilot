@@ -68,7 +68,7 @@ class CarController():
           self.acc_stopping, self.acc_starting = False, False
 
         cb_pos = 0.0 if self.acc_decel_latch else 0.1
-        cb_neg = 0.1
+        cb_neg = 0.2 if self.acc_decel_latch else 0.1
 
         idx = (frame / P.ACC_CONTROL_STEP) % 16
         can_sends.append(volkswagencan.create_mqb_acc_06_control(self.packer_pt, CANBUS.pt, c.longActive, acc_status,
