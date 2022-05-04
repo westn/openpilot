@@ -26,6 +26,7 @@ class CarController():
     self.steer_rate_limited = False
     self.acc_starting = False
     self.acc_stopping = False
+    self.acc_decel_latch = False
 
   def update(self, c, CS, frame, ext_bus, actuators, visual_alert, left_lane_visible, right_lane_visible, left_lane_depart,
              right_lane_depart, lead_visible, set_speed):
@@ -43,6 +44,7 @@ class CarController():
           acc_status = CS.tsk_status
 
         accel = clip(actuators.accel, P.ACCEL_MIN, P.ACCEL_MAX) if c.longActive else 0
+        self.acc_decel_latch = accel < 1.0 or (self.acc_decel_latch and accel < 0.2)
 
         # FIXME: this needs to become a proper state machine
         acc_hold_request, acc_hold_release, acc_hold_type, stopping_distance = False, False, 0, 20.46
@@ -54,7 +56,7 @@ class CarController():
             stopping_distance = 3.5
           else:
             acc_hold_type = 3  # hold_standby
-            stopping_distance = 1.5
+            stopping_distance = 0.5
         elif c.longActive:
           if self.acc_stopping:
             self.acc_starting = True
@@ -65,8 +67,8 @@ class CarController():
         else:
           self.acc_stopping, self.acc_starting = False, False
 
-        cb_pos = 0.1 if lead_visible or CS.out.vEgo < 2.0 else 0.2
-        cb_neg = 0.2
+        cb_pos = 0.0 if self.acc_decel_latch else 0.1
+        cb_neg = 0.1
 
         idx = (frame / P.ACC_CONTROL_STEP) % 16
         can_sends.append(volkswagencan.create_mqb_acc_06_control(self.packer_pt, CANBUS.pt, c.longActive, acc_status,
