@@ -8,6 +8,9 @@ _LEAD_ACCEL_TAU = 1.5
 
 # Hack to maintain vision lead state
 _vision_lead_aTau = {0: _LEAD_ACCEL_TAU, 1: _LEAD_ACCEL_TAU}
+_avg_vision_dRel = {0: 0., 1: 0.}
+_avg_vision_vLead = {0: 0., 1: 0.}
+_avg_vision_aLead = {0: 0., 1: 0.}
 
 # radar tracks
 SPEED, ACCEL = 0, 1   # Kalman filter states enum
@@ -136,23 +139,28 @@ class Cluster():
 
   def get_RadarState_from_vision(self, lead_msg, lead_index, v_ego, vision_v_ego):
     # Learn vision model velocity error to correct vLead
-    vision_velocity_error = vision_v_ego - v_ego
-    corrected_v_lead = lead_msg.v[0] - vision_velocity_error
+    corrected_v_lead = lead_msg.v[0] - (vision_v_ego - v_ego)
+
+    # Do some weighted averaging to try to remove noise
+    # TODO: maybe check plausibility of rate-of-change and clip accordingly?
+    _avg_vision_dRel[lead_index] = float((_avg_vision_dRel[lead_index] * 4 + (lead_msg.x[0] - RADAR_TO_CAMERA)) / 5)
+    _avg_vision_vLead[lead_index] = float((_avg_vision_vLead[lead_index] * 4 + corrected_v_lead) / 5)
+    _avg_vision_aLead[lead_index] = float((_avg_vision_aLead[lead_index] * 4 + lead_msg.a[0]) / 5)
 
     # Learn if constant acceleration
-    if abs(float(lead_msg.a[0])) < 0.5:
+    if abs(_avg_vision_aLead[lead_index]) < 0.5:
       _vision_lead_aTau[lead_index] = _LEAD_ACCEL_TAU
     else:
       _vision_lead_aTau[lead_index] *= 0.9
 
     return {
-      "dRel": float(lead_msg.x[0] - RADAR_TO_CAMERA),
+      "dRel": float(_avg_vision_dRel[lead_index]),
       "yRel": float(-lead_msg.y[0]),
-      "vRel": float(corrected_v_lead - v_ego),
-      "vLead": float(lead_msg.v[0]),
-      "vLeadK": float(corrected_v_lead),
-      "aLeadK": float(lead_msg.a[0]),
-      "aLeadTau": _vision_lead_aTau[lead_index],
+      "vRel": float(_avg_vision_vLead[lead_index] - v_ego),
+      "vLead": float(corrected_v_lead),
+      "vLeadK": float(_avg_vision_vLead[lead_index]),
+      "aLeadK": float(_avg_vision_aLead[lead_index]),
+      "aLeadTau": float(_vision_lead_aTau[lead_index]),
       "fcw": False,
       "modelProb": float(lead_msg.prob),
       "radar": False,
