@@ -141,7 +141,7 @@ class Cluster():
 
   def get_RadarState_from_vision(self, lead_msg, lead_index, v_ego, vision_v_ego):
     # Learn vision model velocity error to correct vLead
-    _avg_vision_v_error[lead_index] = float(_avg_vision_v_error[lead_index] * (_VISION_AVG_SAMPLES - 1) + (vision_v_ego - v_ego))
+    _avg_vision_v_error[lead_index] = float((_avg_vision_v_error[lead_index] * (_VISION_AVG_SAMPLES - 1) + (vision_v_ego - v_ego)) / _VISION_AVG_SAMPLES)
     corrected_v_lead = lead_msg.v[0] - _avg_vision_v_error[lead_index]
 
     # Do some weighted averaging to try to remove noise
