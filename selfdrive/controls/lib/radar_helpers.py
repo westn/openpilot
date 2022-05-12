@@ -7,6 +7,8 @@ from common.kalman.simple_kalman import KF1D
 _LEAD_ACCEL_TAU = 1.5
 
 # Hack to maintain vision lead state
+_VISION_AVG_SAMPLES = 5
+_avg_vision_v_error = {0: 0., 1: 0.}
 _vision_lead_aTau = {0: _LEAD_ACCEL_TAU, 1: _LEAD_ACCEL_TAU}
 _avg_vision_dRel = {0: 0., 1: 0.}
 _avg_vision_vLead = {0: 0., 1: 0.}
@@ -139,13 +141,14 @@ class Cluster():
 
   def get_RadarState_from_vision(self, lead_msg, lead_index, v_ego, vision_v_ego):
     # Learn vision model velocity error to correct vLead
-    corrected_v_lead = lead_msg.v[0] - (vision_v_ego - v_ego)
+    _avg_vision_v_error[lead_index] = float(_avg_vision_v_error[lead_index] * (_VISION_AVG_SAMPLES - 1) + (vision_v_ego - v_ego))
+    corrected_v_lead = lead_msg.v[0] - _avg_vision_v_error[lead_index]
 
     # Do some weighted averaging to try to remove noise
     # TODO: maybe check plausibility of rate-of-change and clip accordingly?
-    _avg_vision_dRel[lead_index] = float((_avg_vision_dRel[lead_index] * 4 + (lead_msg.x[0] - RADAR_TO_CAMERA)) / 5)
-    _avg_vision_vLead[lead_index] = float((_avg_vision_vLead[lead_index] * 4 + corrected_v_lead) / 5)
-    _avg_vision_aLead[lead_index] = float((_avg_vision_aLead[lead_index] * 4 + lead_msg.a[0]) / 5)
+    _avg_vision_dRel[lead_index] = float((_avg_vision_dRel[lead_index] * (_VISION_AVG_SAMPLES - 1) + (lead_msg.x[0] - RADAR_TO_CAMERA)) / _VISION_AVG_SAMPLES)
+    _avg_vision_vLead[lead_index] = float((_avg_vision_vLead[lead_index] * (_VISION_AVG_SAMPLES - 1) + corrected_v_lead) / _VISION_AVG_SAMPLES)
+    _avg_vision_aLead[lead_index] = float((_avg_vision_aLead[lead_index] * (_VISION_AVG_SAMPLES - 1) + lead_msg.a[0]) / _VISION_AVG_SAMPLES)
 
     # Learn if constant acceleration
     if abs(_avg_vision_aLead[lead_index]) < 0.5:
