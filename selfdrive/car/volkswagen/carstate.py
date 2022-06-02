@@ -44,6 +44,9 @@ class CarState(CarStateBase):
     ret.steerFaultPermanent = hca_status in ("DISABLED", "FAULT")
     ret.steerFaultTemporary = hca_status in ("INITIALIZING", "REJECTED")
 
+    # Capture all EPS signals to update and forward to Extended CAN
+    self.eps_stock_values = pt_cp.vl["LH_EPS_03"]
+
     # Update gas, brakes, and gearshift.
     ret.gas = pt_cp.vl["Motor_20"]["MO_Fahrpedalrohwert_01"] / 100.0
     ret.gasPressed = ret.gas > 0
@@ -144,8 +147,8 @@ class CarState(CarStateBase):
   def get_can_parser(CP):
     signals = [
       # sig_name, sig_address
-      ("LWI_Lenkradwinkel", "LWI_01"),           # Absolute steering angle
-      ("LWI_VZ_Lenkradwinkel", "LWI_01"),        # Steering angle sign
+      ("LWI_Lenkradwinkel", "LWI_01"),           # Absolute processed steering angle
+      ("LWI_VZ_Lenkradwinkel", "LWI_01"),        # Processed steering angle sign
       ("LWI_Lenkradw_Geschw", "LWI_01"),         # Absolute steering rate
       ("LWI_VZ_Lenkradw_Geschw", "LWI_01"),      # Steering rate sign
       ("ESP_VL_Radgeschw_02", "ESP_19"),         # ABS wheel speed, front left
@@ -169,6 +172,10 @@ class CarState(CarStateBase):
       ("EPS_Lenkmoment", "LH_EPS_03"),           # Absolute driver torque input
       ("EPS_VZ_Lenkmoment", "LH_EPS_03"),        # Driver torque input sign
       ("EPS_HCA_Status", "LH_EPS_03"),           # EPS HCA control status
+      ("EPS_Berechneter_LW", "LH_EPS_03"),       # Absolute raw steering angle
+      ("EPS_VZ_BLW", "LH_EPS_03"),               # Raw steering angle sign
+      ("EPS_Lenkungstyp", "LH_EPS_03"),          # EPS rack type
+      ("COUNTER", "LH_EPS_03"),                  # LH_EPS_03 message counter
       ("ESP_Tastung_passiv", "ESP_21"),          # Stability control disabled
       ("ESP_Haltebestaetigung", "ESP_21"),       # ESP hold confirmation
       ("KBI_Handbremse", "Kombi_01"),            # Manual handbrake applied

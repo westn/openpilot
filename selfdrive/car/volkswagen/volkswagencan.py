@@ -47,3 +47,12 @@ def create_mqb_acc_buttons_control(packer, bus, buttonStatesToSend, CS, idx):
     "GRA_ButtonTypeInfo": CS.graButtonTypeInfo
   }
   return packer.make_can_msg("GRA_ACC_01", bus, values, idx)
+
+def create_mqb_eps_update(packer, bus, eps_stock_values, total_driver_torque, idx):
+  values = eps_stock_values.copy()
+  values.update({
+    "EPS_Lenkmoment": abs(total_driver_torque),
+    "EPS_VZ_Lenkmoment": 1 if total_driver_torque < 0 else 0
+  })
+
+  return packer.make_can_msg("LH_EPS_03", bus, values, idx)

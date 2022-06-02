@@ -70,6 +70,14 @@ class CarController():
       can_sends.append(volkswagencan.create_mqb_steering_control(self.packer_pt, CANBUS.pt, apply_steer,
                                                                  idx, hcaEnabled))
 
+      # Pacify VW Emergency Assist driver inactivity detection by changing the LH_EPS_03 driver steering input torque
+      # to the sum of openpilot's torque output and true driver input. See commaai/openpilot#23274 for background.
+      # LH_EPS_03 is sent at the same rate as HCA_01, counter is passed through from EPS.
+      total_driver_torque = CS.out.steeringTorque + apply_steer
+      idx = CS.eps_stock_values["COUNTER"]
+      can_sends.append(volkswagencan.create_mqb_eps_update(self.packer_pt, CANBUS.cam, CS.eps_stock_values,
+                                                           total_driver_torque, idx))
+
     # **** HUD Controls ***************************************************** #
 
     if frame % P.LDW_STEP == 0:
