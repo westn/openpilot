@@ -10,6 +10,7 @@ class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     self.buttonStates = BUTTON_STATES.copy()
+    self.tsk_status = None
 
     if CP.carFingerprint in PQ_CARS:
       can_define = CANDefine(DBC_FILES.pq)
@@ -103,11 +104,12 @@ class CarState(CarStateBase):
     ret.stockAeb = bool(ext_cp.vl["ACC_10"]["ANB_Teilbremsung_Freigabe"]) or bool(ext_cp.vl["ACC_10"]["ANB_Zielbremsung_Freigabe"])
 
     # Update ACC radar status.
-    if pt_cp.vl["TSK_06"]["TSK_Status"] == 2:
+    self.tsk_status = pt_cp.vl["TSK_06"]["TSK_Status"]
+    if self.tsk_status == 2:
       # ACC okay and enabled, but not currently engaged
       ret.cruiseState.available = True
       ret.cruiseState.enabled = False
-    elif pt_cp.vl["TSK_06"]["TSK_Status"] in (3, 4, 5):
+    elif self.tsk_status in (3, 4, 5):
       # ACC okay and enabled, currently regulating speed (3) or driver accel override (4) or overrun coast-down (5)
       ret.cruiseState.available = True
       ret.cruiseState.enabled = True
