@@ -1,5 +1,5 @@
 from cereal import car
-from selfdrive.car.volkswagen.values import CAR, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter
+from selfdrive.car.volkswagen.values import CAR, PQ_CARS, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
 
@@ -10,7 +10,6 @@ class CarInterface(CarInterfaceBase):
   def __init__(self, CP, CarController, CarState):
     super().__init__(CP, CarController, CarState)
 
-    self.displayMetricUnitsPrev = None
     self.buttonStatesPrev = BUTTON_STATES.copy()
 
     if CP.networkLocation == NetworkLocation.fwdCamera:
@@ -26,7 +25,22 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "volkswagen"
     ret.radarOffCan = True
 
-    if True:  # pylint: disable=using-constant-test
+    if candidate in PQ_CARS:
+      # Set global PQ35/PQ46/NMS parameters
+      ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagenPq)]
+      ret.enableBsm = 0x3BA in fingerprint[0]  # SWA_1
+
+      if 0x440 in fingerprint[0]:  # Getriebe_1
+        ret.transmissionType = TransmissionType.automatic
+      else:
+        ret.transmissionType = TransmissionType.manual
+
+      if any(msg in fingerprint[1] for msg in (0x1A0, 0xAE)):  # FIXME: what are these messages
+        ret.networkLocation = NetworkLocation.gateway
+      else:
+        ret.networkLocation = NetworkLocation.fwdCamera
+
+    else:
       # Set global MQB parameters
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagen)]
       ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
@@ -77,6 +91,12 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.PASSAT_MK8:
       ret.mass = 1551 + STD_CARGO_KG
       ret.wheelbase = 2.79
+
+    elif candidate == CAR.PASSAT_NMS:
+      ret.mass = 1503 + STD_CARGO_KG
+      ret.wheelbase = 2.80
+      # restore this if the min speed workaround isn't applied
+      # ret.minSteerSpeed = 50 * CV.KPH_TO_MS
 
     elif candidate == CAR.POLO_MK6:
       ret.mass = 1230 + STD_CARGO_KG
@@ -203,7 +223,6 @@ class CarInterface(CarInterfaceBase):
     ret.buttonEvents = buttonEvents
 
     # update previous car states
-    self.displayMetricUnitsPrev = self.CS.displayMetricUnits
     self.buttonStatesPrev = self.CS.buttonStates.copy()
 
     self.CS.out = ret.as_reader()
