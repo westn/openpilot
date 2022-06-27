@@ -292,7 +292,7 @@ void Replay::startStream(const Segment *cur_segment) {
         camera_size[type] = {fr->width, fr->height};
       }
     }
-    camera_server_ = std::make_unique<CameraServer>(camera_size);
+    camera_server_ = std::make_unique<CameraServer>(camera_size, true);
   }
 
   // start stream thread

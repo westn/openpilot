@@ -1781,6 +1781,8 @@ struct NavInstruction {
   lanes @8 :List(Lane);
   showFull @9 :Bool;
 
+  speedLimit @10 :Float32; # m/s
+
   struct Lane {
     directions @0 :List(Direction);
     active @1 :Bool;
@@ -1806,10 +1808,11 @@ struct NavRoute {
 }
 
 struct EncodeData {
-  idx @0 :EncodeIndex;
-  data @1 :Data;
-  header @2 :Data;
-  unixTimestampNanos @3 :UInt64;
+  data @0 :Data;
+  timestampEof @1 :Int64;
+  idx @2 :UInt32;
+  segmentNum @3 :Int32;
+  flags @4 :UInt32;
 }
 
 struct Event {

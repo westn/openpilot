@@ -33,17 +33,19 @@ import time
 import threading
 from pathlib import Path
 from typing import List, Tuple, Optional
-from markdown_it import MarkdownIt
 
 from common.basedir import BASEDIR
+from common.markdown import parse_markdown
 from common.params import Params
-from selfdrive.hardware import TICI, HARDWARE
+from selfdrive.hardware import EON, TICI, HARDWARE
 from selfdrive.swaglog import cloudlog
 from selfdrive.controls.lib.alertmanager import set_offroad_alert
 from selfdrive.version import is_tested_branch
 
 LOCK_FILE = os.getenv("UPDATER_LOCK_FILE", "/tmp/safe_staging_overlay.lock")
 STAGING_ROOT = os.getenv("UPDATER_STAGING_ROOT", "/data/safe_staging")
+
+NEOSUPDATE_DIR = os.getenv("UPDATER_NEOSUPDATE_DIR", "/data/neoupdate")
 
 OVERLAY_UPPER = os.path.join(STAGING_ROOT, "upper")
 OVERLAY_METADATA = os.path.join(STAGING_ROOT, "metadata")
@@ -126,7 +128,7 @@ def set_params(new_version: bool, failed_count: int, exception: Optional[str]) -
       with open(os.path.join(FINALIZED, "RELEASES.md"), "rb") as f:
         r = f.read().split(b'\n\n', 1)[0]  # Slice latest release notes
       try:
-        params.put("ReleaseNotes", MarkdownIt().render(r.decode("utf-8")))
+        params.put("ReleaseNotes", parse_markdown(r.decode("utf-8")))
       except Exception:
         params.put("ReleaseNotes", r + b"\n")
     except Exception:
@@ -178,7 +180,10 @@ def setup_git_options(cwd: str) -> None:
 def dismount_overlay() -> None:
   if os.path.ismount(OVERLAY_MERGED):
     cloudlog.info("unmounting existing overlay")
-    run(["sudo", "umount", "-l", OVERLAY_MERGED])
+    args = ["umount", "-l", OVERLAY_MERGED]
+    if TICI:
+      args = ["sudo"] + args
+    run(args)
 
 
 def init_overlay() -> None:
@@ -201,7 +206,8 @@ def init_overlay() -> None:
   params.put_bool("UpdateAvailable", False)
   set_consistent_flag(False)
   dismount_overlay()
-  run(["sudo", "rm", "-rf", STAGING_ROOT])
+  if TICI:
+    run(["sudo", "rm", "-rf", STAGING_ROOT])
   if os.path.isdir(STAGING_ROOT):
     shutil.rmtree(STAGING_ROOT)
 
@@ -225,8 +231,11 @@ def init_overlay() -> None:
   overlay_opts = f"lowerdir={BASEDIR},upperdir={OVERLAY_UPPER},workdir={OVERLAY_METADATA}"
 
   mount_cmd = ["mount", "-t", "overlay", "-o", overlay_opts, "none", OVERLAY_MERGED]
-  run(["sudo"] + mount_cmd)
-  run(["sudo", "chmod", "755", os.path.join(OVERLAY_METADATA, "work")])
+  if TICI:
+    run(["sudo"] + mount_cmd)
+    run(["sudo", "chmod", "755", os.path.join(OVERLAY_METADATA, "work")])
+  else:
+    run(mount_cmd)
 
   git_diff = run(["git", "diff"], OVERLAY_MERGED, low_priority=True)
   params.put("GitDiff", git_diff)
@@ -287,6 +296,42 @@ def handle_agnos_update(wait_helper: WaitTimeHelper) -> None:
   set_offroad_alert("Offroad_NeosUpdate", False)
 
 
+def handle_neos_update(wait_helper: WaitTimeHelper) -> None:
+  from selfdrive.hardware.eon.neos import download_neos_update
+
+  cur_neos = HARDWARE.get_os_version()
+  updated_neos = run(["bash", "-c", r"unset REQUIRED_NEOS_VERSION && source launch_env.sh && \
+                       echo -n $REQUIRED_NEOS_VERSION"], OVERLAY_MERGED).strip()
+
+  cloudlog.info(f"NEOS version check: {cur_neos} vs {updated_neos}")
+  if cur_neos == updated_neos:
+    return
+
+  cloudlog.info(f"Beginning background download for NEOS {updated_neos}")
+  set_offroad_alert("Offroad_NeosUpdate", True)
+
+  update_manifest = os.path.join(OVERLAY_MERGED, "selfdrive/hardware/eon/neos.json")
+
+  neos_downloaded = False
+  start_time = time.monotonic()
+  # Try to download for one day
+  while not neos_downloaded and not wait_helper.shutdown and \
+        (time.monotonic() - start_time < 60*60*24):
+    wait_helper.ready_event.clear()
+    try:
+      download_neos_update(update_manifest, cloudlog)
+      neos_downloaded = True
+    except Exception:
+      cloudlog.info("NEOS background download failed, retrying")
+      wait_helper.sleep(120)
+
+  # If the download failed, we'll show the alert again when we retry
+  set_offroad_alert("Offroad_NeosUpdate", False)
+  if not neos_downloaded:
+    raise Exception("Failed to download NEOS update")
+  cloudlog.info(f"NEOS background download successful, took {time.monotonic() - start_time} seconds")
+
+
 def check_git_fetch_result(fetch_txt: str) -> bool:
   err_msg = "Failed to add the host to the list of known hosts (/data/data/com.termux/files/home/.ssh/known_hosts).\n"
   return len(fetch_txt) > 0 and (fetch_txt != err_msg)
@@ -328,7 +373,9 @@ def fetch_update(wait_helper: WaitTimeHelper) -> bool:
       ]
       cloudlog.info("git reset success: %s", '\n'.join(r))
 
-      if TICI:
+      if EON:
+        handle_neos_update(wait_helper)
+      elif TICI:
         handle_agnos_update(wait_helper)
 
     # Create the finalized, ready-to-swap update
@@ -369,11 +416,19 @@ def main() -> None:
   overlay_init = Path(os.path.join(BASEDIR, ".overlay_init"))
   overlay_init.unlink(missing_ok=True)
 
+  first_run = True
+  last_fetch_time = 0.0
   update_failed_count = 0  # TODO: Load from param?
+
+  # Wait for IsOffroad to be set before our first update attempt
   wait_helper = WaitTimeHelper(proc)
+  wait_helper.sleep(30)
 
   # Run the update loop
+  #  * every 5m, do a lightweight internet/update check
+  #  * every 10m, do a full git fetch
   while not wait_helper.shutdown:
+    update_now = wait_helper.ready_event.is_set()
     wait_helper.ready_event.clear()
 
     # Attempt an update
@@ -383,16 +438,19 @@ def main() -> None:
     try:
       init_overlay()
 
-      # TODO: still needed? skip this and just fetch?
-      # Lightweight internt check
       internet_ok, update_available = check_for_update()
       if internet_ok and not update_available:
         update_failed_count = 0
 
-      # Fetch update
-      if internet_ok:
+      # Fetch updates at most every 10 minutes
+      if internet_ok and (update_now or time.monotonic() - last_fetch_time > 60*10):
         new_version = fetch_update(wait_helper)
         update_failed_count = 0
+        last_fetch_time = time.monotonic()
+
+        if first_run and not new_version and os.path.isdir(NEOSUPDATE_DIR):
+          shutil.rmtree(NEOSUPDATE_DIR)
+        first_run = False
     except subprocess.CalledProcessError as e:
       cloudlog.event(
         "update process failed",
@@ -413,8 +471,8 @@ def main() -> None:
       except Exception:
         cloudlog.exception("uncaught updated exception while setting params, shouldn't happen")
 
-    # infrequent attempts if we successfully updated recently
-    wait_helper.sleep(5*60 if update_failed_count > 0 else 90*60)
+    # TODO: replace this with a good backoff
+    wait_helper.sleep(300)
 
   dismount_overlay()
 

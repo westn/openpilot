@@ -2,7 +2,7 @@ import os
 
 from cereal import car
 from common.params import Params
-from selfdrive.hardware import TICI, PC
+from selfdrive.hardware import EON, TICI, PC
 from selfdrive.manager.process import PythonProcess, NativeProcess, DaemonProcess
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
@@ -24,12 +24,10 @@ procs = [
   NativeProcess("clocksd", "selfdrive/clocksd", ["./clocksd"]),
   NativeProcess("dmonitoringmodeld", "selfdrive/modeld", ["./dmonitoringmodeld"], enabled=(not PC or WEBCAM), callback=driverview),
   NativeProcess("logcatd", "selfdrive/logcatd", ["./logcatd"]),
-  NativeProcess("encoderd", "selfdrive/loggerd", ["./encoderd"]),
   NativeProcess("loggerd", "selfdrive/loggerd", ["./loggerd"], onroad=False, callback=logging),
   NativeProcess("modeld", "selfdrive/modeld", ["./modeld"]),
-  NativeProcess("navd", "selfdrive/ui/navd", ["./navd"], offroad=True),
   NativeProcess("proclogd", "selfdrive/proclogd", ["./proclogd"]),
-  NativeProcess("sensord", "selfdrive/sensord", ["./sensord"], enabled=not PC),
+  NativeProcess("sensord", "selfdrive/sensord", ["./sensord"], enabled=not PC, offroad=EON, sigkill=EON),
   NativeProcess("ubloxd", "selfdrive/locationd", ["./ubloxd"], enabled=(not PC or WEBCAM)),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], offroad=True, watchdog_max_dt=(5 if TICI else None)),
   NativeProcess("soundd", "selfdrive/ui/soundd", ["./soundd"], offroad=True),
@@ -40,6 +38,7 @@ procs = [
   PythonProcess("deleter", "selfdrive.loggerd.deleter", offroad=True),
   PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", enabled=(not PC or WEBCAM), callback=driverview),
   PythonProcess("logmessaged", "selfdrive.logmessaged", offroad=True),
+  PythonProcess("navd", "selfdrive.navd.navd", enabled=(PC or TICI), offroad=True),
   PythonProcess("pandad", "selfdrive.boardd.pandad", offroad=True),
   PythonProcess("paramsd", "selfdrive.locationd.paramsd"),
   PythonProcess("plannerd", "selfdrive.controls.plannerd"),
@@ -51,6 +50,11 @@ procs = [
   PythonProcess("uploader", "selfdrive.loggerd.uploader", offroad=True),
   PythonProcess("statsd", "selfdrive.statsd", offroad=True),
 
+  # EON only
+  PythonProcess("rtshield", "selfdrive.rtshield", enabled=EON),
+  PythonProcess("shutdownd", "selfdrive.hardware.eon.shutdownd", enabled=EON),
+  PythonProcess("androidd", "selfdrive.hardware.eon.androidd", enabled=EON, offroad=True),
+  
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], onroad=False, callback=notcar),
   PythonProcess("webjoystick", "tools.joystick.web", onroad=False, callback=notcar),
 

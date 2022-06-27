@@ -75,4 +75,3 @@ struct DBC {
 
 DBC* dbc_parse(const std::string& dbc_name, const std::string& dbc_file_path);
 const DBC* dbc_lookup(const std::string& dbc_name);
-std::vector<std::string> get_dbc_names();

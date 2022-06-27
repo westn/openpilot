@@ -26,8 +26,10 @@ common/ffi_wrapper.py
 common/file_helpers.py
 common/logging_extra.py
 common/numpy_fast.py
+common/markdown.py
 common/params.py
 common/params_pyx.pyx
+common/xattr.py
 common/profiler.py
 common/basedir.py
 common/dict_helpers.py
@@ -60,6 +62,8 @@ release/*
 
 tools/lib/*
 tools/joystick/*
+
+installer/updater/updater
 
 selfdrive/version.py
 
@@ -168,7 +172,6 @@ selfdrive/controls/lib/events.py
 selfdrive/controls/lib/lane_planner.py
 selfdrive/controls/lib/latcontrol_angle.py
 selfdrive/controls/lib/latcontrol_indi.py
-selfdrive/controls/lib/latcontrol_lqr.py
 selfdrive/controls/lib/latcontrol_torque.py
 selfdrive/controls/lib/latcontrol_pid.py
 selfdrive/controls/lib/latcontrol.py
@@ -190,6 +193,14 @@ selfdrive/hardware/__init__.py
 selfdrive/hardware/base.h
 selfdrive/hardware/base.py
 selfdrive/hardware/hw.h
+selfdrive/hardware/eon/__init__.py
+selfdrive/hardware/eon/androidd.py
+selfdrive/hardware/eon/shutdownd.py
+selfdrive/hardware/eon/hardware.h
+selfdrive/hardware/eon/hardware.py
+selfdrive/hardware/eon/neos.py
+selfdrive/hardware/eon/neos.json
+selfdrive/hardware/eon/updater
 selfdrive/hardware/tici/__init__.py
 selfdrive/hardware/tici/hardware.h
 selfdrive/hardware/tici/hardware.py
@@ -226,6 +237,7 @@ selfdrive/locationd/models/live_kf.cc
 selfdrive/locationd/calibrationd.py
 
 selfdrive/logcatd/SConscript
+selfdrive/logcatd/logcatd_android.cc
 selfdrive/logcatd/logcatd_systemd.cc
 
 selfdrive/proclogd/SConscript
@@ -234,20 +246,18 @@ selfdrive/proclogd/proclog.cc
 selfdrive/proclogd/proclog.h
 
 selfdrive/loggerd/SConscript
-selfdrive/loggerd/encoder/encoder.cc
-selfdrive/loggerd/encoder/encoder.h
-selfdrive/loggerd/encoder/v4l_encoder.cc
-selfdrive/loggerd/encoder/v4l_encoder.h
-selfdrive/loggerd/video_writer.cc
-selfdrive/loggerd/video_writer.h
+selfdrive/loggerd/encoder.h
+selfdrive/loggerd/omx_encoder.cc
+selfdrive/loggerd/omx_encoder.h
 selfdrive/loggerd/logger.cc
 selfdrive/loggerd/logger.h
 selfdrive/loggerd/loggerd.cc
 selfdrive/loggerd/loggerd.h
-selfdrive/loggerd/encoderd.cc
+selfdrive/loggerd/main.cc
 selfdrive/loggerd/bootlog.cc
-selfdrive/loggerd/encoder/ffmpeg_encoder.cc
-selfdrive/loggerd/encoder/ffmpeg_encoder.h
+selfdrive/loggerd/raw_logger.cc
+selfdrive/loggerd/raw_logger.h
+selfdrive/loggerd/include/msm_media_info.h
 
 selfdrive/loggerd/__init__.py
 selfdrive/loggerd/config.py
@@ -257,6 +267,7 @@ selfdrive/loggerd/xattr_cache.py
 
 selfdrive/sensord/SConscript
 selfdrive/sensord/libdiag.h
+selfdrive/sensord/sensors_qcom.cc
 selfdrive/sensord/sensors_qcom2.cc
 selfdrive/sensord/sensors/*.cc
 selfdrive/sensord/sensors/*.h
@@ -290,9 +301,14 @@ selfdrive/ui/qt/offroad/*.h
 selfdrive/ui/qt/offroad/*.qml
 selfdrive/ui/qt/widgets/*.cc
 selfdrive/ui/qt/widgets/*.h
+selfdrive/ui/qt/spinner_aarch64
+selfdrive/ui/qt/text_aarch64
 
 selfdrive/ui/replay/*.cc
 selfdrive/ui/replay/*.h
+
+selfdrive/ui/qt/maps/*.cc
+selfdrive/ui/qt/maps/*.h
 
 selfdrive/camerad/SConscript
 selfdrive/camerad/main.cc
@@ -301,6 +317,10 @@ selfdrive/camerad/snapshot/*
 selfdrive/camerad/include/*
 selfdrive/camerad/cameras/camera_common.h
 selfdrive/camerad/cameras/camera_common.cc
+selfdrive/camerad/cameras/camera_qcom.cc
+selfdrive/camerad/cameras/camera_qcom.h
+selfdrive/camerad/cameras/debayer.cl
+selfdrive/camerad/cameras/sensor_i2c.h
 selfdrive/camerad/cameras/sensor2_i2c.h
 
 selfdrive/camerad/transforms/rgb_to_yuv.cc
@@ -363,6 +383,8 @@ selfdrive/modeld/runners/run.h
 selfdrive/monitoring/dmonitoringd.py
 selfdrive/monitoring/driver_monitor.py
 
+selfdrive/navd/*.py
+
 selfdrive/assets/.gitignore
 selfdrive/assets/assets.qrc
 selfdrive/assets/*.png
@@ -377,8 +399,12 @@ selfdrive/assets/training/*
 
 third_party/SConscript
 
+third_party/libgralloc/**
 third_party/linux/**
 third_party/opencl/**
+third_party/zlib/*
+third_party/bzip2/*
+third_party/openmax/**
 
 third_party/json11/json11.cpp
 third_party/json11/json11.hpp
@@ -394,11 +420,18 @@ third_party/libyuv/lib/**
 third_party/libyuv/larch64/**
 
 third_party/snpe/include/**
+third_party/snpe/aarch64**
+third_party/snpe/larch64**
 third_party/snpe/dsp**
 
 third_party/acados/x86_64/**
+third_party/acados/aarch64/**
 third_party/acados/larch64/**
 third_party/acados/include/**
+
+third_party/android_frameworks_native/**
+third_party/android_hardware_libhardware/**
+third_party/android_system_core/**
 
 scripts/update_now.sh
 scripts/stop_updater.sh
@@ -491,6 +524,7 @@ opendbc/honda_odyssey_extreme_edition_2018_china_can_generated.dbc
 opendbc/honda_insight_ex_2019_can_generated.dbc
 opendbc/acura_ilx_2016_nidec.dbc
 
+opendbc/kia_ev6.dbc
 opendbc/hyundai_kia_generic.dbc
 opendbc/hyundai_kia_mando_front_radar.dbc
 

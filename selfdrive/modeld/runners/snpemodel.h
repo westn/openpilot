@@ -1,5 +1,4 @@
 #pragma once
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <DlContainer/IDlContainer.hpp>
 #include <DlSystem/DlError.hpp>
@@ -40,7 +39,7 @@ public:
 private:
   std::string model_data;
 
-#ifdef QCOM2
+#if defined(QCOM) || defined(QCOM2)
   zdl::DlSystem::Runtime_t Runtime;
 #endif
 

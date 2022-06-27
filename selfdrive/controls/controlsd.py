@@ -23,7 +23,6 @@ from selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from selfdrive.controls.lib.latcontrol_indi import LatControlINDI
 from selfdrive.controls.lib.latcontrol_angle import LatControlAngle
 from selfdrive.controls.lib.latcontrol_torque import LatControlTorque
-from selfdrive.controls.lib.latcontrol_lqr import LatControlLQR
 from selfdrive.controls.lib.events import Events, ET
 from selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
 from selfdrive.controls.lib.vehicle_model import VehicleModel
@@ -38,8 +37,9 @@ LANE_DEPARTURE_THRESHOLD = 0.1
 REPLAY = "REPLAY" in os.environ
 SIMULATION = "SIMULATION" in os.environ
 NOSENSOR = "NOSENSOR" in os.environ
-IGNORE_PROCESSES = {"uploader", "deleter", "loggerd", "logmessaged", "tombstoned", "statsd",
-                    "logcatd", "proclogd", "clocksd", "updated", "timezoned", "manage_athenad"} | \
+IGNORE_PROCESSES = {"rtshield", "uploader", "deleter", "loggerd", "logmessaged", "tombstoned",
+                    "logcatd", "proclogd", "clocksd", "updated", "timezoned", "manage_athenad",
+                    "statsd", "shutdownd"} | \
                    {k for k, v in managed_processes.items() if not v.enabled}
 
 ThermalStatus = log.DeviceState.ThermalStatus
@@ -61,7 +61,7 @@ ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 
 class Controls:
   def __init__(self, sm=None, pm=None, can_sock=None, CI=None):
-    config_realtime_process(4, Priority.CTRL_HIGH)
+    config_realtime_process(4 if TICI else 3, Priority.CTRL_HIGH)
 
     # Setup sockets
     self.pm = pm
@@ -146,8 +146,6 @@ class Controls:
       self.LaC = LatControlPID(self.CP, self.CI)
     elif self.CP.lateralTuning.which() == 'indi':
       self.LaC = LatControlINDI(self.CP, self.CI)
-    elif self.CP.lateralTuning.which() == 'lqr':
-      self.LaC = LatControlLQR(self.CP, self.CI)
     elif self.CP.lateralTuning.which() == 'torque':
       self.LaC = LatControlTorque(self.CP, self.CI)
 
@@ -242,7 +240,7 @@ class Controls:
       self.events.add(EventName.lowMemory)
 
     # TODO: enable this once loggerd CPU usage is more reasonable
-    #cpus = list(self.sm['deviceState'].cpuUsagePercent)
+    #cpus = list(self.sm['deviceState'].cpuUsagePercent)[:(-1 if EON else None)]
     #if max(cpus, default=0) > 95 and not SIMULATION:
     #  self.events.add(EventName.highCpuUsage)
 
@@ -446,8 +444,7 @@ class Controls:
 
     # if stock cruise is completely disabled, then we can use our own set speed logic
     if not self.CP.pcmCruise:
-      self.v_cruise_kph = update_v_cruise(self.v_cruise_kph, CS.vEgo, CS.gasPressed, CS.buttonEvents,
-                                          self.button_timers, self.enabled, self.is_metric)
+      self.v_cruise_kph = update_v_cruise(self.v_cruise_kph, CS.buttonEvents, self.button_timers, self.enabled, self.is_metric)
     else:
       if CS.cruiseState.available:
         self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
@@ -752,8 +749,6 @@ class Controls:
       controlsState.lateralControlState.pidState = lac_log
     elif lat_tuning == 'torque':
       controlsState.lateralControlState.torqueState = lac_log
-    elif lat_tuning == 'lqr':
-      controlsState.lateralControlState.lqrState = lac_log
     elif lat_tuning == 'indi':
       controlsState.lateralControlState.indiState = lac_log
 
