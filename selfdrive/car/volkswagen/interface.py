@@ -1,4 +1,5 @@
 from cereal import car
+from selfdrive.config import Conversions as CV
 from selfdrive.car.volkswagen.values import CAR, PQ_CARS, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
@@ -95,8 +96,9 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.PASSAT_NMS:
       ret.mass = 1503 + STD_CARGO_KG
       ret.wheelbase = 2.80
-      # restore this if the min speed workaround isn't applied
-      # ret.minSteerSpeed = 50 * CV.KPH_TO_MS
+      ret.minEnableSpeed = 20 * CV.KPH_TO_MS  # ACC "basic", no FtS
+      ret.minSteerSpeed = 50 * CV.KPH_TO_MS
+      ret.steerActuatorDelay = 0.2
 
     elif candidate == CAR.POLO_MK6:
       ret.mass = 1230 + STD_CARGO_KG
