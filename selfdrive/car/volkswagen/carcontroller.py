@@ -1,8 +1,10 @@
 from cereal import car
 from opendbc.can.packer import CANPacker
+from common.numpy_fast import clip
+from common.conversions import Conversions as CV
 from selfdrive.car import apply_std_steer_torque_limits
-from selfdrive.car.volkswagen import volkswagencan
-from selfdrive.car.volkswagen.values import DBC_FILES, CANBUS, MQB_LDW_MESSAGES, CarControllerParams as P
+from selfdrive.car.volkswagen import volkswagencan, pqcan
+from selfdrive.car.volkswagen.values import PQ_CARS, CANBUS, MQB_LDW_MESSAGES, PQ_LDW_MESSAGES, CarControllerParams as P
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -12,8 +14,24 @@ class CarController:
     self.CP = CP
     self.apply_steer_last = 0
     self.frame = 0
+    self.packer_pt = CANPacker(dbc_name)
 
-    self.packer_pt = CANPacker(DBC_FILES.mqb)
+    if CP.carFingerprint in PQ_CARS:
+      self.create_steering_control = pqcan.create_steering_control
+      self.create_lka_hud_control = pqcan.create_lka_hud_control
+      self.create_acc_buttons_control = pqcan.create_acc_buttons_control
+      self.create_acc_accel_control = pqcan.create_acc_accel_control
+      self.create_acc_hud_control = pqcan.create_acc_hud_control
+      self.ldw_step = P.PQ_LDW_STEP
+      self.ldw_messages = PQ_LDW_MESSAGES
+    else:
+      self.create_steering_control = volkswagencan.create_steering_control
+      self.create_lka_hud_control = volkswagencan.create_lka_hud_control
+      self.create_acc_buttons_control = volkswagencan.create_acc_buttons_control
+      self.create_acc_accel_control = None
+      self.create_acc_hud_control = None
+      self.ldw_step = P.MQB_LDW_STEP
+      self.ldw_messages = MQB_LDW_MESSAGES
 
     self.hcaSameTorqueCount = 0
     self.hcaEnabledFrameCount = 0
@@ -62,29 +80,52 @@ class CarController:
         apply_steer = 0
 
       self.apply_steer_last = apply_steer
-      can_sends.append(volkswagencan.create_mqb_steering_control(self.packer_pt, CANBUS.pt, apply_steer, hcaEnabled))
+      can_sends.append(self.create_steering_control(self.packer_pt, CANBUS.pt, apply_steer, hcaEnabled))
+
+    # **** Acceleration Controls ******************************************** #
+
+    if self.CP.openpilotLongitudinalControl:
+      if self.frame % P.ACC_CONTROL_STEP:
+        if CC.longActive:
+          adr_status = 1
+        elif CS.out.cruiseState.available:
+          adr_status = 2
+        else:
+          adr_status = 0
+        accel = clip(actuators.accel, P.ACCEL_MIN, P.ACCEL_MAX) if CC.longActive else 0
+        can_sends.append(self.create_acc_accel_control(self.packer_pt, CANBUS.pt, adr_status, accel))
+      if self.frame % P.ACC_HUD_STEP:
+        if CC.longActive:
+          acc_status = 3
+        elif CS.out.cruiseState.available:
+          acc_status = 2
+        elif CS.out.accFaulted:
+          acc_status = 6
+        else:
+          acc_status = 0
+        set_speed = hud_control.setSpeed * CV.MS_TO_KPH  # FIXME: follow the recent displayed-speed updates, also use mph_kmh toggle to fix display rounding problem?
+        can_sends.append(self.create_acc_hud_control(self.packer_pt, CANBUS.pt, acc_status, set_speed,
+                                                     hud_control.leadVisible))
 
     # **** HUD Controls ***************************************************** #
 
-    if self.frame % P.LDW_STEP == 0:
+    if self.frame % self.ldw_step == 0:
+      hud_alert = 0
       if hud_control.visualAlert in (VisualAlert.steerRequired, VisualAlert.ldw):
-        hud_alert = MQB_LDW_MESSAGES["laneAssistTakeOverSilent"]
-      else:
-        hud_alert = MQB_LDW_MESSAGES["none"]
+        hud_alert = self.ldw_messages["laneAssistTakeOver"]
 
-      can_sends.append(volkswagencan.create_mqb_hud_control(self.packer_pt, CANBUS.pt, CC.enabled,
-                                                            CS.out.steeringPressed, hud_alert, hud_control.leftLaneVisible,
-                                                            hud_control.rightLaneVisible, CS.ldw_stock_values,
-                                                            hud_control.leftLaneDepart, hud_control.rightLaneDepart))
+      can_sends.append(self.create_lka_hud_control(self.packer_pt, CANBUS.pt, CC.enabled, CS.out.steeringPressed,
+                                                   hud_alert, hud_control.leftLaneVisible, hud_control.rightLaneVisible,
+                                                   CS.ldw_stock_values, hud_control.leftLaneDepart, hud_control.rightLaneDepart))
 
     # **** ACC Button Controls ********************************************** #
 
     if self.CP.pcmCruise and self.frame % P.GRA_ACC_STEP == 0:
       idx = (CS.gra_stock_values["COUNTER"] + 1) % 16
       if CC.cruiseControl.cancel:
-        can_sends.append(volkswagencan.create_mqb_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, cancel=True))
+        can_sends.append(self.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, cancel=True))
       elif CC.cruiseControl.resume:
-        can_sends.append(volkswagencan.create_mqb_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, resume=True))
+        can_sends.append(self.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, resume=True))
 
     new_actuators = actuators.copy()
     new_actuators.steer = self.apply_steer_last / P.STEER_MAX
