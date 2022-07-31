@@ -41,10 +41,9 @@ def create_mqb_acc_buttons_control(packer, bus, gra_stock_values, idx, cancel=Fa
 
   return packer.make_can_msg("GRA_ACC_01", bus, values)
 
-def create_mqb_eps_update(packer, bus, eps_stock_values, ea_simulated_torque, idx):
+def create_mqb_eps_update(packer, bus, eps_stock_values, ea_simulated_torque):
   values = eps_stock_values.copy()
 
-  values["COUNTER"] = idx
   values["EPS_Lenkmoment"] = abs(ea_simulated_torque)
   values["EPS_VZ_Lenkmoment"] = 1 if ea_simulated_torque < 0 else 0
 

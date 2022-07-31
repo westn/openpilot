@@ -70,9 +70,8 @@ class CarController:
       ea_simulated_torque = apply_steer * 2
       if abs(CS.out.steeringTorque) > abs(ea_simulated_torque):
         ea_simulated_torque = CS.out.steeringTorque
-      idx = CS.eps_stock_values["COUNTER"]
       can_sends.append(volkswagencan.create_mqb_eps_update(self.packer_pt, CANBUS.cam, CS.eps_stock_values,
-                                                           ea_simulated_torque, idx))
+                                                           ea_simulated_torque))
 
     # **** HUD Controls ***************************************************** #
 
