@@ -1,35 +1,50 @@
 from cereal import car
-from selfdrive.car import apply_std_steer_torque_limits
-from selfdrive.car.volkswagen import volkswagencan
-from selfdrive.car.volkswagen.values import DBC_FILES, CANBUS, MQB_LDW_MESSAGES, BUTTON_STATES, CarControllerParams as P
 from opendbc.can.packer import CANPacker
+from common.numpy_fast import clip
+from common.conversions import Conversions as CV
+from selfdrive.car import apply_std_steer_torque_limits
+from selfdrive.car.volkswagen import volkswagencan, pqcan
+from selfdrive.car.volkswagen.values import PQ_CARS, CANBUS, MQB_LDW_MESSAGES, PQ_LDW_MESSAGES, CarControllerParams as P
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
-class CarController():
-  def __init__(self, dbc_name, CP, VM):
-    self.apply_steer_last = 0
-    self.CP = CP
 
-    self.packer_pt = CANPacker(DBC_FILES.mqb)
+class CarController:
+  def __init__(self, dbc_name, CP, VM):
+    self.CP = CP
+    self.apply_steer_last = 0
+    self.frame = 0
+    self.packer_pt = CANPacker(dbc_name)
+
+    if CP.carFingerprint in PQ_CARS:
+      self.create_steering_control = pqcan.create_steering_control
+      self.create_lka_hud_control = pqcan.create_lka_hud_control
+      self.create_acc_buttons_control = pqcan.create_acc_buttons_control
+      self.create_acc_accel_control = pqcan.create_acc_accel_control
+      self.create_acc_hud_control = pqcan.create_acc_hud_control
+      self.ldw_step = P.PQ_LDW_STEP
+      self.ldw_messages = PQ_LDW_MESSAGES
+    else:
+      self.create_steering_control = volkswagencan.create_steering_control
+      self.create_lka_hud_control = volkswagencan.create_lka_hud_control
+      self.create_acc_buttons_control = volkswagencan.create_acc_buttons_control
+      self.create_acc_accel_control = None
+      self.create_acc_hud_control = None
+      self.ldw_step = P.MQB_LDW_STEP
+      self.ldw_messages = MQB_LDW_MESSAGES
 
     self.hcaSameTorqueCount = 0
     self.hcaEnabledFrameCount = 0
-    self.graButtonStatesToSend = None
-    self.graMsgSentCount = 0
-    self.graMsgStartFramePrev = 0
-    self.graMsgBusCounterPrev = 0
 
-    self.steer_rate_limited = False
-
-  def update(self, c, CS, frame, ext_bus, actuators, visual_alert, left_lane_visible, right_lane_visible, left_lane_depart, right_lane_depart):
-    """ Controls thread """
+  def update(self, CC, CS, ext_bus):
+    actuators = CC.actuators
+    hud_control = CC.hudControl
 
     can_sends = []
 
     # **** Steering Controls ************************************************ #
 
-    if frame % P.HCA_STEP == 0:
+    if self.frame % P.HCA_STEP == 0:
       # Logic to avoid HCA state 4 "refused":
       #   * Don't steer unless HCA is in state 3 "ready" or 5 "active"
       #   * Don't steer at standstill
@@ -40,10 +55,9 @@ class CarController():
       # torque value. Do that anytime we happen to have 0 torque, or failing that,
       # when exceeding ~1/3 the 360 second timer.
 
-      if c.latActive:
+      if CC.latActive:
         new_steer = int(round(actuators.steer * P.STEER_MAX))
         apply_steer = apply_std_steer_torque_limits(new_steer, self.apply_steer_last, CS.out.steeringTorque, P)
-        self.steer_rate_limited = new_steer != apply_steer
         if apply_steer == 0:
           hcaEnabled = False
           self.hcaEnabledFrameCount = 0
@@ -66,52 +80,55 @@ class CarController():
         apply_steer = 0
 
       self.apply_steer_last = apply_steer
-      idx = (frame / P.HCA_STEP) % 16
-      can_sends.append(volkswagencan.create_mqb_steering_control(self.packer_pt, CANBUS.pt, apply_steer,
-                                                                 idx, hcaEnabled))
+      can_sends.append(self.create_steering_control(self.packer_pt, CANBUS.pt, apply_steer, hcaEnabled))
+
+    # **** Acceleration Controls ******************************************** #
+
+    if self.frame % P.ACC_CONTROL_STEP == 0 and self.CP.openpilotLongitudinalControl:
+      if CC.longActive:
+        adr_status = 1
+      elif CS.out.cruiseState.available:
+        adr_status = 2
+      else:
+        adr_status = 0
+      accel = clip(actuators.accel, P.ACCEL_MIN, P.ACCEL_MAX) if CC.longActive else 0
+      can_sends.append(self.create_acc_accel_control(self.packer_pt, CANBUS.pt, adr_status, accel))
 
     # **** HUD Controls ***************************************************** #
 
-    if frame % P.LDW_STEP == 0:
-      if visual_alert in (VisualAlert.steerRequired, VisualAlert.ldw):
-        hud_alert = MQB_LDW_MESSAGES["laneAssistTakeOverSilent"]
+    if self.frame % self.ldw_step == 0:
+      hud_alert = 0
+      if hud_control.visualAlert in (VisualAlert.steerRequired, VisualAlert.ldw):
+        hud_alert = self.ldw_messages["laneAssistTakeOver"]
+
+      can_sends.append(self.create_lka_hud_control(self.packer_pt, CANBUS.pt, CC.enabled, CS.out.steeringPressed,
+                                                   hud_alert, hud_control.leftLaneVisible, hud_control.rightLaneVisible,
+                                                   CS.ldw_stock_values, hud_control.leftLaneDepart, hud_control.rightLaneDepart))
+
+    if self.frame % P.ACC_HUD_STEP == 0 and self.CP.openpilotLongitudinalControl:
+      if CC.longActive:
+        acc_status = 3
+      elif CS.out.cruiseState.available:
+        acc_status = 2
+      elif CS.out.accFaulted:
+        acc_status = 6
       else:
-        hud_alert = MQB_LDW_MESSAGES["none"]
+        acc_status = 0
+      set_speed = hud_control.setSpeed * CV.MS_TO_KPH  # FIXME: follow the recent displayed-speed updates, also use mph_kmh toggle to fix display rounding problem?
+      can_sends.append(self.create_acc_hud_control(self.packer_pt, CANBUS.pt, acc_status, set_speed,
+                                                   hud_control.leadVisible))
 
-      can_sends.append(volkswagencan.create_mqb_hud_control(self.packer_pt, CANBUS.pt, c.enabled,
-                                                            CS.out.steeringPressed, hud_alert, left_lane_visible,
-                                                            right_lane_visible, CS.ldw_stock_values,
-                                                            left_lane_depart, right_lane_depart))
+    # **** Stock ACC Button Controls **************************************** #
 
-    # **** ACC Button Controls ********************************************** #
-
-    # FIXME: this entire section is in desperate need of refactoring
-
-    if self.CP.pcmCruise:
-      if frame > self.graMsgStartFramePrev + P.GRA_VBP_STEP:
-        if c.cruiseControl.cancel:
-          # Cancel ACC if it's engaged with OP disengaged.
-          self.graButtonStatesToSend = BUTTON_STATES.copy()
-          self.graButtonStatesToSend["cancel"] = True
-        elif c.enabled and CS.esp_hold_confirmation:
-          # Blip the Resume button if we're engaged at standstill.
-          # FIXME: This is a naive implementation, improve with visiond or radar input.
-          self.graButtonStatesToSend = BUTTON_STATES.copy()
-          self.graButtonStatesToSend["resumeCruise"] = True
-
-      if CS.graMsgBusCounter != self.graMsgBusCounterPrev:
-        self.graMsgBusCounterPrev = CS.graMsgBusCounter
-        if self.graButtonStatesToSend is not None:
-          if self.graMsgSentCount == 0:
-            self.graMsgStartFramePrev = frame
-          idx = (CS.graMsgBusCounter + 1) % 16
-          can_sends.append(volkswagencan.create_mqb_acc_buttons_control(self.packer_pt, ext_bus, self.graButtonStatesToSend, CS, idx))
-          self.graMsgSentCount += 1
-          if self.graMsgSentCount >= P.GRA_VBP_COUNT:
-            self.graButtonStatesToSend = None
-            self.graMsgSentCount = 0
+    if self.CP.pcmCruise and self.frame % P.GRA_ACC_STEP == 0:
+      idx = (CS.gra_stock_values["COUNTER"] + 1) % 16
+      if CC.cruiseControl.cancel:
+        can_sends.append(self.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, cancel=True))
+      elif CC.cruiseControl.resume:
+        can_sends.append(self.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, idx, resume=True))
 
     new_actuators = actuators.copy()
     new_actuators.steer = self.apply_steer_last / P.STEER_MAX
 
+    self.frame += 1
     return new_actuators, can_sends
