@@ -111,7 +111,7 @@ class CarInterface(CarInterfaceBase):
       ret.minEnableSpeed = 20 * CV.KPH_TO_MS  # ACC "basic", no FtS
       ret.minSteerSpeed = 50 * CV.KPH_TO_MS
       ret.steerActuatorDelay = 0.2
-      CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
+      # CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
     elif candidate == CAR.POLO_MK6:
       ret.mass = 1230 + STD_CARGO_KG
