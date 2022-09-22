@@ -4,7 +4,7 @@ from common.numpy_fast import clip
 from common.conversions import Conversions as CV
 from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.volkswagen import mqbcan, pqcan
-from selfdrive.car.volkswagen.values import CANBUS, PQ_CARS, CarControllerParams
+from selfdrive.car.volkswagen.values import CANBUS, PQ_CARS, STANDING_RESUME_SPAM_CARS, CarControllerParams
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 LongCtrlState = car.CarControl.Actuators.LongControlState
@@ -95,11 +95,17 @@ class CarController:
 
     # **** Stock ACC Button Controls **************************************** #
 
-    gra_send_ready = self.CP.pcmCruise and CS.gra_stock_values["COUNTER"] != self.gra_acc_counter_last
-    if gra_send_ready and (CC.cruiseControl.cancel or CC.cruiseControl.resume):
-      counter = (CS.gra_stock_values["COUNTER"] + 1) % 16
-      can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, counter,
-                                                           cancel=CC.cruiseControl.cancel, resume=CC.cruiseControl.resume))
+    if self.CP.pcmCruise and CS.gra_stock_values["COUNTER"] != self.gra_acc_counter_last:  # send just after stock
+      standing_resume_spam = CS.out.cruiseState.standstill and self.CP.carFingerprint in STANDING_RESUME_SPAM_CARS
+      spam_window = self.frame % 50 < 25  # 0.25 second gap between virtual button presses
+
+      send_cancel = CC.cruiseControl.cancel
+      send_resume = CC.cruiseControl.resume or (standing_resume_spam and spam_window)
+
+      if send_cancel or send_resume:
+        counter = (CS.gra_stock_values["COUNTER"] + 1) % 16
+        can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, counter,
+                                                             cancel=send_cancel, resume=send_resume))
 
     new_actuators = actuators.copy()
     new_actuators.steer = self.apply_steer_last / self.CCP.STEER_MAX
