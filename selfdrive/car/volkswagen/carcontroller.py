@@ -99,13 +99,13 @@ class CarController:
       standing_resume_spam = CS.out.cruiseState.standstill and self.CP.carFingerprint in STANDING_RESUME_SPAM_CARS
       spam_window = self.frame % 50 < 25  # 0.25 second gap between virtual button presses
 
-      send_cancel = CC.cruiseControl.cancel
-      send_resume = CC.cruiseControl.resume or (standing_resume_spam and spam_window)
+      press_cancel = CC.cruiseControl.cancel
+      press_resume = CC.cruiseControl.resume or (standing_resume_spam and spam_window)
 
-      if send_cancel or send_resume:
+      if press_cancel or press_resume:
         counter = (CS.gra_stock_values["COUNTER"] + 1) % 16
         can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, ext_bus, CS.gra_stock_values, counter,
-                                                             cancel=send_cancel, resume=send_resume))
+                                                             cancel=press_cancel, resume=press_resume))
 
     new_actuators = actuators.copy()
     new_actuators.steer = self.apply_steer_last / self.CCP.STEER_MAX
