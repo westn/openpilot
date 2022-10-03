@@ -5,6 +5,12 @@ from common.kalman.simple_kalman import KF1D
 # Default lead acceleration decay set to 50% at 1s
 _LEAD_ACCEL_TAU = 1.5
 
+
+# Test hack: store vision lead accel tau factor
+class VisionLead:
+  a_lead_tau = _LEAD_ACCEL_TAU
+
+
 # radar tracks
 SPEED, ACCEL = 0, 1   # Kalman filter states enum
 
@@ -131,14 +137,21 @@ class Cluster():
     }
 
   def get_RadarState_from_vision(self, lead_msg, v_ego):
+
+    # Learn if constant acceleration
+    if lead_msg.prob < .9 or abs(lead_msg.a[0]) < 0.5:
+      VisionLead.a_lead_tau = _LEAD_ACCEL_TAU
+    else:
+      VisionLead.a_lead_tau *= 0.9
+
     return {
       "dRel": float(lead_msg.x[0] - RADAR_TO_CAMERA),
       "yRel": float(-lead_msg.y[0]),
       "vRel": float(lead_msg.v[0] - v_ego),
       "vLead": float(lead_msg.v[0]),
       "vLeadK": float(lead_msg.v[0]),
-      "aLeadK": float(0),
-      "aLeadTau": _LEAD_ACCEL_TAU,
+      "aLeadK": float(lead_msg.a[0]),
+      "aLeadTau": VisionLead.a_lead_tau,
       "fcw": False,
       "modelProb": float(lead_msg.prob),
       "radar": False,
