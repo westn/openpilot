@@ -152,7 +152,7 @@ class Cluster():
       "vLeadK": float(lead_msg.v[0]),
       "aLeadK": float(lead_msg.a[0]),
       "aLeadTau": VisionLead.a_lead_tau,
-      "fcw": False,
+      "fcw": self.is_potential_fcw(float(lead_msg.prob)),
       "modelProb": float(lead_msg.prob),
       "radar": True,  # does this matter?
       "status": True
