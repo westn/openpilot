@@ -136,25 +136,29 @@ class Cluster():
       "aLeadTau": float(self.aLeadTau)
     }
 
-  def get_RadarState_from_vision(self, lead_msg, v_ego_model):
+  def get_RadarState_from_vision(self, lead_msg, v_ego, v_ego_model):
 
     # Learn if constant acceleration
-    if lead_msg.prob < .5 or abs(lead_msg.a[0]) < 0.3:
+    if lead_msg.prob < .5 or abs(lead_msg.a[0]) < 0.5:
       VisionLead.a_lead_tau = _LEAD_ACCEL_TAU
     else:
       VisionLead.a_lead_tau *= 0.9
 
+    # Compensate vLead for deviations between v_ego perceived by the model and by the car
+    v_rel = lead_msg.v[0] - v_ego_model
+    v_lead = v_ego + v_rel
+
     return {
       "dRel": float(lead_msg.x[0] - RADAR_TO_CAMERA),
       "yRel": float(-lead_msg.y[0]),
-      "vRel": float(lead_msg.v[0] - v_ego_model),
-      "vLead": float(lead_msg.v[0]),
-      "vLeadK": float(lead_msg.v[0]),
+      "vRel": float(v_rel),
+      "vLead": float(v_lead),
+      "vLeadK": float(v_lead),
       "aLeadK": float(lead_msg.a[0]),
       "aLeadTau": VisionLead.a_lead_tau,
-      "fcw": self.is_potential_fcw(float(lead_msg.prob)),
+      "fcw": False,
       "modelProb": float(lead_msg.prob),
-      "radar": True,  # does this matter?
+      "radar": False,
       "status": True
     }
 
