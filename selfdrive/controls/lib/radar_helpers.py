@@ -3,13 +3,7 @@ from common.kalman.simple_kalman import KF1D
 
 
 # Default lead acceleration decay set to 50% at 1s
-_LEAD_ACCEL_TAU = 0.7
-
-
-# Test hack: store vision lead accel tau factor
-class VisionLead:
-  a_lead_tau = _LEAD_ACCEL_TAU
-
+_LEAD_ACCEL_TAU = 1.5
 
 # radar tracks
 SPEED, ACCEL = 0, 1   # Kalman filter states enum
@@ -136,26 +130,15 @@ class Cluster():
       "aLeadTau": float(self.aLeadTau)
     }
 
-  def get_RadarState_from_vision(self, lead_msg, v_ego, v_ego_model):
-
-    # Learn if constant acceleration
-    if lead_msg.prob < .5 or abs(lead_msg.a[0]) < 0.5:
-      VisionLead.a_lead_tau = _LEAD_ACCEL_TAU
-    else:
-      VisionLead.a_lead_tau *= 0.9
-
-    # Compensate vLead for deviations between v_ego perceived by the model and by the car
-    v_rel = lead_msg.v[0] - v_ego_model
-    v_lead = v_ego + v_rel
-
+  def get_RadarState_from_vision(self, lead_msg, v_ego):
     return {
       "dRel": float(lead_msg.x[0] - RADAR_TO_CAMERA),
       "yRel": float(-lead_msg.y[0]),
-      "vRel": float(v_rel),
-      "vLead": float(v_lead),
-      "vLeadK": float(v_lead),
-      "aLeadK": float(lead_msg.a[0]),
-      "aLeadTau": VisionLead.a_lead_tau,
+      "vRel": float(lead_msg.v[0] - v_ego),
+      "vLead": float(lead_msg.v[0]),
+      "vLeadK": float(lead_msg.v[0]),
+      "aLeadK": float(0),
+      "aLeadTau": _LEAD_ACCEL_TAU,
       "fcw": False,
       "modelProb": float(lead_msg.prob),
       "radar": False,
