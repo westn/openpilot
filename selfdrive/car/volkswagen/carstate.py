@@ -41,8 +41,7 @@ class CarState(CarStateBase):
     )
 
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
-    ret.vEgo = self.update_speed_kf(ret.vEgoRaw)[0]
-    ret.aEgo = pt_cp.vl["ESP_02"]["ESP_Laengsbeschl"]
+    ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.standstill = ret.vEgo < 0.1
 
     # Update steering angle, rate, yaw rate, and driver input torque. VW send
@@ -259,7 +258,6 @@ class CarState(CarStateBase):
       ("ESP_HR_Radgeschw_02", "ESP_19"),         # ABS wheel speed, rear right
       ("ESP_Gierrate", "ESP_02"),                # Absolute yaw rate
       ("ESP_VZ_Gierrate", "ESP_02"),             # Yaw rate sign
-      ("ESP_Laengsbeschl", "ESP_02"),            # Longitudinal acceleration
       ("ZV_FT_offen", "Gateway_72"),             # Door open, driver
       ("ZV_BT_offen", "Gateway_72"),             # Door open, passenger
       ("ZV_HFS_offen", "Gateway_72"),            # Door open, rear left
