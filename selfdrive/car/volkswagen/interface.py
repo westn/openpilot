@@ -88,10 +88,10 @@ class CarInterface(CarInterfaceBase):
     ret.experimentalLongitudinalAvailable = ret.networkLocation == NetworkLocation.gateway
     ret.stoppingControl = True
     ret.startingState = True
-    ret.startAccel = 1.0
-    ret.vEgoStarting = 1.0
-    ret.vEgoStopping = 1.0
-    ret.longitudinalTuning.kpV = [0.5]
+    ret.startAccel = 0.5
+    ret.vEgoStarting = 0.5
+    ret.vEgoStopping = 0.5
+    ret.longitudinalTuning.kpV = [0.1]
     ret.longitudinalTuning.kiV = [0.0]
 
     # Per-chassis tuning values, override tuning defaults here if desired
