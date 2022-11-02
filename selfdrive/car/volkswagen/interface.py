@@ -32,7 +32,7 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagenPq)]
       ret.enableBsm = 0x3BA in fingerprint[0]  # SWA_1
 
-      if 0x440 in fingerprint[0] or not fingerprint[0]:  # Getriebe_1, or empty FP for CI/docs generation
+      if 0x440 in fingerprint[0] or len(fingerprint[0]) == 0:  # Getriebe_1, or empty FP for CI/docs generation
         ret.transmissionType = TransmissionType.automatic
       else:
         ret.transmissionType = TransmissionType.manual
@@ -55,7 +55,7 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagen)]
       ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
 
-      if 0xAD in fingerprint[0] or not fingerprint[0]:  # Getriebe_11, or empty FP for CI/docs generation
+      if 0xAD in fingerprint[0] or len(fingerprint[0]) == 0:  # Getriebe_11, or empty FP for CI/docs generation
         ret.transmissionType = TransmissionType.automatic
       elif 0x187 in fingerprint[0]:  # EV_Gearshift
         ret.transmissionType = TransmissionType.direct
@@ -77,7 +77,8 @@ class CarInterface(CarInterfaceBase):
 
     # Global longitudinal tuning defaults, can be overridden per-vehicle
 
-    if experimental_long and bool(fingerprint[0]):  # FIXME: hack to delay CI/doc/harness stuff for now
+    ret.experimentalLongitudinalAvailable = ret.networkLocation == NetworkLocation.gateway
+    if experimental_long:
       # Proof-of-concept, prep for E2E only. No radar points available. Panda ALLOW_DEBUG firmware required.
       ret.openpilotLongitudinalControl = True
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_VOLKSWAGEN_LONG_CONTROL
