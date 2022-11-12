@@ -43,7 +43,7 @@ class CarState(CarStateBase):
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     # Match Panda standstill (check average > ~0.1 m/s at driven wheels, at DBC scale 0.0075 no-FP-math sum 0.195 m/s)
-    ret.standstill = ret.wheelSpeeds.fl + ret.wheelSpeeds.fr > 0.2
+    ret.standstill = ret.wheelSpeeds.fl + ret.wheelSpeeds.fr < 0.2
 
     # Update steering angle, rate, yaw rate, and driver input torque. VW send
     # the sign/direction in a separate signal so they must be recombined.
