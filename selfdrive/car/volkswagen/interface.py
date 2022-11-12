@@ -91,8 +91,8 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingControl = True
     ret.startingState = True
     ret.startAccel = 0.5
-    ret.vEgoStarting = 0.2
-    ret.vEgoStopping = 0.2
+    ret.vEgoStarting = 0.5
+    ret.vEgoStopping = 0.5
     ret.longitudinalTuning.kpV = [0.01]
     ret.longitudinalTuning.kiV = [0.0]
 
