@@ -492,9 +492,9 @@ class MqbExtraSignals:
     ("ANB_Zielbremsung_Freigabe", "ACC_10"),     # AEB target braking release
   ]
   fwd_radar_checks = [
-    ("ACC_06", 50),                                 # From J428 ACC radar control module
-    ("ACC_10", 50),                                 # From J428 ACC radar control module
-    ("ACC_02", 17),                                 # From J428 ACC radar control module
+    ("ACC_06", 50),                              # From J428 ACC radar control module
+    ("ACC_10", 50),                              # From J428 ACC radar control module
+    ("ACC_02", 17),                              # From J428 ACC radar control module
   ]
   bsm_radar_signals = [
     ("SWA_Infostufe_SWA_li", "SWA_01"),          # Blind spot object info, left
@@ -503,26 +503,26 @@ class MqbExtraSignals:
     ("SWA_Warnung_SWA_re", "SWA_01"),            # Blind spot object warning, right
   ]
   bsm_radar_checks = [
-    ("SWA_01", 20),                                 # From J1086 Lane Change Assist
+    ("SWA_01", 20),                              # From J1086 Lane Change Assist
   ]
 
 class PqExtraSignals:
   # Additional signal and message lists for optional or bus-portable controllers
   fwd_radar_signals = [
-    ("ACS_Typ_ACC", "ACC_System", 0),               # Basic vs FtS (no SnG support on PQ)
-    ("ACA_StaACC", "ACC_GRA_Anziege", 0),           # ACC drivetrain coordinator status
-    ("ACA_V_Wunsch", "ACC_GRA_Anziege", 0),         # ACC set speed
+    ("ACS_Typ_ACC", "ACC_System"),               # Basic vs FtS (no SnG support on PQ)
+    ("ACA_StaACC", "ACC_GRA_Anziege", 0),        # ACC drivetrain coordinator status
+    ("ACA_V_Wunsch", "ACC_GRA_Anziege", 0),      # ACC set speed
   ]
   fwd_radar_checks = [
-    ("ACC_System", 50),                             # From J428 ACC radar control module
-    ("ACC_GRA_Anziege", 25),                        # From J428 ACC radar control module
+    ("ACC_System", 50),                          # From J428 ACC radar control module
+    ("ACC_GRA_Anziege", 25),                     # From J428 ACC radar control module
   ]
   bsm_radar_signals = [
-    ("SWA_Infostufe_SWA_li", "SWA_1", 0),           # Blind spot object info, left
-    ("SWA_Warnung_SWA_li", "SWA_1", 0),             # Blind spot object warning, left
-    ("SWA_Infostufe_SWA_re", "SWA_1", 0),           # Blind spot object info, right
-    ("SWA_Warnung_SWA_re", "SWA_1", 0),             # Blind spot object warning, right
+    ("SWA_Infostufe_SWA_li", "SWA_1"),           # Blind spot object info, left
+    ("SWA_Warnung_SWA_li", "SWA_1"),             # Blind spot object warning, left
+    ("SWA_Infostufe_SWA_re", "SWA_1"),           # Blind spot object info, right
+    ("SWA_Warnung_SWA_re", "SWA_1"),             # Blind spot object warning, right
   ]
   bsm_radar_checks = [
-    ("SWA_1", 20),                                  # From J1086 Lane Change Assist
+    ("SWA_1", 20),                               # From J1086 Lane Change Assist
   ]
