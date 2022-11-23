@@ -220,12 +220,13 @@ class CarState(CarStateBase):
     ret.stockAeb = False
 
     # Update ACC radar status.
-    self.acc_type = 0  # TODO: this is ACC "basic" with nonzero min speed, support FtS (1) later
+    self.acc_type = ext_cp.vl["ACC_System"]["ACS_Typ_ACC"]
     ret.cruiseState.available = bool(pt_cp.vl["Motor_5"]["GRA_Hauptschalter"])
-    ret.cruiseState.enabled = bool(pt_cp.vl["Motor_2"]["GRA_Status"])
+    ret.cruiseState.enabled = pt_cp.vl["Motor_2"]["GRA_Status"] in (1, 2)
     if self.CP.pcmCruise:
       ret.accFaulted = ext_cp.vl["ACC_GRA_Anziege"]["ACA_StaACC"] in (6, 7)
-    # TODO: update opendbc with PQ TSK state for OP long accFaulted
+    else:
+      ret.accFaulted = pt_cp.vl["Motor_2"]["GRA_Status"] == 3
 
     # Update ACC setpoint. When the setpoint reads as 255, the driver has not
     # yet established an ACC setpoint, so treat it as zero.
@@ -485,7 +486,7 @@ class MqbExtraSignals:
   # Additional signal and message lists for optional or bus-portable controllers
   fwd_radar_signals = [
     ("ACC_Wunschgeschw_02", "ACC_02"),           # ACC set speed
-    ("ACC_Typ", "ACC_06"),                       # Basic vs F2S vs SNG
+    ("ACC_Typ", "ACC_06"),                       # Basic vs FtS vs SnG
     ("AWV2_Freigabe", "ACC_10"),                 # FCW brake jerk release
     ("ANB_Teilbremsung_Freigabe", "ACC_10"),     # AEB partial braking release
     ("ANB_Zielbremsung_Freigabe", "ACC_10"),     # AEB target braking release
@@ -508,10 +509,12 @@ class MqbExtraSignals:
 class PqExtraSignals:
   # Additional signal and message lists for optional or bus-portable controllers
   fwd_radar_signals = [
+    ("ACS_Typ_ACC", "ACC_System", 0),               # Basic vs FtS (no SnG support on PQ)
     ("ACA_StaACC", "ACC_GRA_Anziege", 0),           # ACC drivetrain coordinator status
     ("ACA_V_Wunsch", "ACC_GRA_Anziege", 0),         # ACC set speed
   ]
   fwd_radar_checks = [
+    ("ACC_System", 50),                             # From J428 ACC radar control module
     ("ACC_GRA_Anziege", 25),                        # From J428 ACC radar control module
   ]
   bsm_radar_signals = [
