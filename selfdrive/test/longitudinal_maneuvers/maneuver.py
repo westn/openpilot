@@ -51,7 +51,8 @@ class Maneuver():
                             speed_lead,
                             log['acceleration'],
                             log['d_rel'],
-                            log['v_rel']]))
+                            log['v_rel'],
+                            log['a_lead']]))
 
       if d_rel < .4 and (self.only_radar or prob > 0.5):
         print("Crashed!!!!")

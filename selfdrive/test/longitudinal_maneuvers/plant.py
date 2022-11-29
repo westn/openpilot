@@ -152,6 +152,7 @@ class Plant:
       "distance": self.distance,
       "speed": self.speed,
       "acceleration": self.acceleration,
+      "a_lead": a_lead if a_lead < 5.0 else 0,
       "speeds": self.speeds,
       "distance_lead": self.distance_lead,
       "fcw": fcw,
