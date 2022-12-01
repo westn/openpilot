@@ -83,7 +83,7 @@ def create_acc_accel_control(packer, bus, acc_type, enabled, accel, acc_control,
     acc_hold_type = 0
 
   acc_07_values = {
-    "ACC_Anhalteweg": 0.5 if stopping else 20.46,  # Distance to stop
+    "ACC_Anhalteweg": 0.2 if stopping else 20.46,  # Distance to stop
     "ACC_Freilauf_Info": 2 if enabled else 0,
     "ACC_Folgebeschl": accel if enabled else 3.02,  # TODO: experiment, does this do anything useful?
     "ACC_Sollbeschleunigung_02": accel if enabled else 3.01,
