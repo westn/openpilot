@@ -172,8 +172,9 @@ class RadarD():
 
     leads_v3 = sm['modelV2'].leadsV3
     if len(leads_v3) > 1:
-      self.vision_lead_states[0].update(leads_v3[0], self.v_ego)
-      self.vision_lead_states[1].update(leads_v3[1], self.v_ego)
+      vision_v_ego = sm['modelV2'].temporalPose.trans[0]
+      self.vision_lead_states[0].update(leads_v3[0], self.v_ego, vision_v_ego)
+      self.vision_lead_states[1].update(leads_v3[1], self.v_ego, vision_v_ego)
       radarState.leadOne = get_lead(self.v_ego, self.ready, clusters, leads_v3[0], self.vision_lead_states[0], low_speed_override=True)
       radarState.leadTwo = get_lead(self.v_ego, self.ready, clusters, leads_v3[1], self.vision_lead_states[1], low_speed_override=False)
     return dat

@@ -20,6 +20,7 @@ RADAR_TO_CAMERA = 1.52   # RADAR is ~ 1.5m ahead from center of mesh frame
 class VisionLeadState:
   def __init__(self):
     TC = 0.2  # derived by rectal extraction
+    self.vision_speed_error = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
     self.d_rel_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
     self.y_rel_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
     self.v_lead_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
@@ -27,12 +28,14 @@ class VisionLeadState:
     self.aLead = 0
     self.aLeadTau = _LEAD_ACCEL_TAU
 
-  def update(self, lead_msg, v_ego):
+  def update(self, lead_msg, v_ego, vision_v_ego):
+    self.vision_speed_error.update(vision_v_ego - v_ego)
+
     self.modelProb = lead_msg.prob
     if self.modelProb > 0.5:
       self.dRel = self.d_rel_filter.update(lead_msg.x[0] - RADAR_TO_CAMERA)
       self.yRel = self.y_rel_filter.update(-lead_msg.y[0])
-      self.vLead = self.v_lead_filter.update(lead_msg.v[0])
+      self.vLead = self.v_lead_filter.update(lead_msg.v[0] - self.vision_speed_error.x)  # This may be a bad assumption
       self.aLead = self.a_lead_filter.update(lead_msg.a[0])
       self.vRel = self.vLead - v_ego
     else:
