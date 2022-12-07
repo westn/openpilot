@@ -9,7 +9,7 @@ from common.numpy_fast import interp
 from common.params import Params
 from common.realtime import Ratekeeper, Priority, config_realtime_process
 from selfdrive.controls.lib.cluster.fastcluster_py import cluster_points_centroid
-from selfdrive.controls.lib.radar_helpers import Cluster, Track, RADAR_TO_CAMERA
+from selfdrive.controls.lib.radar_helpers import Cluster, Track, VisionLeadState, RADAR_TO_CAMERA
 from system.swaglog import cloudlog
 
 
@@ -64,7 +64,7 @@ def match_vision_to_cluster(v_ego, lead, clusters):
     return None
 
 
-def get_lead(v_ego, ready, clusters, lead_msg, lead_index, vision_v_ego, low_speed_override=True):
+def get_lead(v_ego, ready, clusters, lead_msg, vision_lead_state, low_speed_override=True):
   # Determine leads, this is where the essential logic happens
   if len(clusters) > 0 and ready and lead_msg.prob > .5:
     cluster = match_vision_to_cluster(v_ego, lead_msg, clusters)
@@ -75,7 +75,7 @@ def get_lead(v_ego, ready, clusters, lead_msg, lead_index, vision_v_ego, low_spe
   if cluster is not None:
     lead_dict = cluster.get_RadarState(lead_msg.prob)
   elif (cluster is None) and ready and (lead_msg.prob > .5):
-    lead_dict = Cluster().get_RadarState_from_vision(lead_msg, lead_index, v_ego, vision_v_ego)
+    lead_dict = Cluster().get_RadarState_from_vision(vision_lead_state)
 
   if low_speed_override:
     low_speed_clusters = [c for c in clusters if c.potential_low_speed_lead(v_ego)]
@@ -95,6 +95,7 @@ class RadarD():
 
     self.tracks = defaultdict(dict)
     self.kalman_params = KalmanParams(radar_ts)
+    self.vision_lead_states = (VisionLeadState(), VisionLeadState())
 
     # v_ego
     self.v_ego = 0.
@@ -171,9 +172,10 @@ class RadarD():
 
     leads_v3 = sm['modelV2'].leadsV3
     if len(leads_v3) > 1:
-      vision_v_ego = sm['modelV2'].temporalPose.trans[0]
-      radarState.leadOne = get_lead(self.v_ego, self.ready, clusters, leads_v3[0], 0, vision_v_ego, low_speed_override=True)
-      radarState.leadTwo = get_lead(self.v_ego, self.ready, clusters, leads_v3[1], 1, vision_v_ego, low_speed_override=False)
+      self.vision_lead_states[0].update(leads_v3[0], self.v_ego)
+      self.vision_lead_states[1].update(leads_v3[1], self.v_ego)
+      radarState.leadOne = get_lead(self.v_ego, self.ready, clusters, leads_v3[0], self.vision_lead_states[0], low_speed_override=True)
+      radarState.leadTwo = get_lead(self.v_ego, self.ready, clusters, leads_v3[1], self.vision_lead_states[1], low_speed_override=False)
     return dat
 
 

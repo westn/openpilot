@@ -1,12 +1,11 @@
-from common.numpy_fast import mean
+from common.filter_simple import FirstOrderFilter
 from common.kalman.simple_kalman import KF1D
+from common.numpy_fast import mean
+from common.realtime import DT_MDL
 
 
 # Default lead acceleration decay set to 50% at 1s
 _LEAD_ACCEL_TAU = 1.5
-
-# Hack to maintain vision lead state
-_vision_lead_aTau = {0: _LEAD_ACCEL_TAU, 1: _LEAD_ACCEL_TAU}
 
 # radar tracks
 SPEED, ACCEL = 0, 1   # Kalman filter states enum
@@ -16,6 +15,43 @@ v_ego_stationary = 4.   # no stationary object flag below this speed
 
 RADAR_TO_CENTER = 2.7   # (deprecated) RADAR is ~ 2.7m ahead from center of car
 RADAR_TO_CAMERA = 1.52   # RADAR is ~ 1.5m ahead from center of mesh frame
+
+
+class VisionLeadState:
+  def __init__(self):
+    TC = 0.2  # derived by rectal extraction
+    self.d_rel_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
+    self.y_rel_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
+    self.v_lead_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
+    self.a_lead_filter = FirstOrderFilter(0, TC, DT_MDL, initialized=False)
+    self.aLead = 0
+    self.aLeadTau = _LEAD_ACCEL_TAU
+
+  def update(self, lead_msg, v_ego):
+    self.modelProb = lead_msg.prob
+    if self.modelProb > 0.5:
+      self.dRel = self.d_rel_filter.update(lead_msg.x[0] - RADAR_TO_CAMERA)
+      self.yRel = self.y_rel_filter.update(-lead_msg.y[0])
+      self.vLead = self.v_lead_filter.update(lead_msg.v[0])
+      self.aLead = self.a_lead_filter.update(lead_msg.a[0])
+      self.vRel = self.vLead - v_ego
+    else:
+      self.dRel = 0
+      self.yRel = 0
+      self.vLead = 0
+      self.aLead = 0
+      self.vRel = 0
+      self.d_rel_filter.initialized = False
+      self.y_rel_filter.initialized = False
+      self.v_lead_filter.initialized = False
+      self.a_lead_filter.initialized = False
+
+    # Learn if constant acceleration
+    if abs(self.aLead) < 0.5:
+      self.aLeadTau = _LEAD_ACCEL_TAU
+    else:
+      self.aLeadTau *= 0.9
+
 
 class Track():
   def __init__(self, v_lead, kalman_params):
@@ -133,27 +169,17 @@ class Cluster():
       "aLeadTau": float(self.aLeadTau)
     }
 
-  def get_RadarState_from_vision(self, lead_msg, lead_index, v_ego, vision_v_ego):
-    # Learn vision model velocity error to correct vLead
-    vision_velocity_error = vision_v_ego - v_ego
-    corrected_v_lead = lead_msg.v[0] - vision_velocity_error
-
-    # Learn if constant acceleration
-    if abs(float(lead_msg.a[0])) < 0.5:
-      _vision_lead_aTau[lead_index] = _LEAD_ACCEL_TAU
-    else:
-      _vision_lead_aTau[lead_index] *= 0.9
-
+  def get_RadarState_from_vision(self, vision_lead_state):
     return {
-      "dRel": float(lead_msg.x[0] - RADAR_TO_CAMERA),
-      "yRel": float(-lead_msg.y[0]),
-      "vRel": float(corrected_v_lead - v_ego),
-      "vLead": float(corrected_v_lead),
-      "vLeadK": float(corrected_v_lead),
-      "aLeadK": float(lead_msg.a[0]),
-      "aLeadTau": _vision_lead_aTau[lead_index],
-      "fcw": False,
-      "modelProb": float(lead_msg.prob),
+      "dRel": float(vision_lead_state.dRel),
+      "yRel": float(vision_lead_state.yRel),
+      "vRel": float(vision_lead_state.vRel),
+      "vLead": float(vision_lead_state.vLead),
+      "vLeadK": float(vision_lead_state.vLead),
+      "aLeadK": float(vision_lead_state.aLead),
+      "aLeadTau": float(vision_lead_state.aLeadTau),
+      "fcw": self.is_potential_fcw(vision_lead_state.modelProb),
+      "modelProb": float(vision_lead_state.modelProb),
       "radar": False,
       "status": True
     }
