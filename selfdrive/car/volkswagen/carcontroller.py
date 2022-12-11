@@ -41,7 +41,7 @@ class CarController:
       # torque value. Do that anytime we happen to have 0 torque, or failing that,
       # when exceeding ~1/3 the 360 second timer.
 
-      if CC.latActive:
+      if CC.latActive and CS.out.vEgoRaw > 0.3:
         new_steer = int(round(actuators.steer * self.CCP.STEER_MAX))
         apply_steer = apply_std_steer_torque_limits(new_steer, self.apply_steer_last, CS.out.steeringTorque, self.CCP)
         if apply_steer == 0:
