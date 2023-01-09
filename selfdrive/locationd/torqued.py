@@ -11,7 +11,7 @@ from common.params import Params
 from common.realtime import config_realtime_process, DT_MDL
 from common.filter_simple import FirstOrderFilter
 from system.swaglog import cloudlog
-from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
+#from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 
 HISTORY = 5  # secs
 POINTS_PER_BUCKET = 1500
@@ -208,12 +208,13 @@ class TorqueEstimator:
     elif which == "liveLocationKalman":
       if len(self.raw_points['steer_torque']) == self.hist_len:
         yaw_rate = msg.angularVelocityCalibrated.value[2]
-        roll = msg.orientationNED.value[0]
+        # roll = msg.orientationNED.value[0]
         active = np.interp(np.arange(t - MIN_ENGAGE_BUFFER, t, DT_MDL), self.raw_points['carControl_t'], self.raw_points['active']).astype(bool)
         steer_override = np.interp(np.arange(t - MIN_ENGAGE_BUFFER, t, DT_MDL), self.raw_points['carState_t'], self.raw_points['steer_override']).astype(bool)
         vego = np.interp(t, self.raw_points['carState_t'], self.raw_points['vego'])
         steer = np.interp(t, self.raw_points['carControl_t'], self.raw_points['steer_torque'])
-        lateral_acc = (vego * yaw_rate) - (np.sin(roll) * ACCELERATION_DUE_TO_GRAVITY)
+        # lateral_acc = (vego * yaw_rate) - (np.sin(roll) * ACCELERATION_DUE_TO_GRAVITY)
+        lateral_acc = vego * yaw_rate
         if all(active) and (not any(steer_override)) and (vego > MIN_VEL) and (abs(steer) > STEER_MIN_THRESHOLD) and (abs(lateral_acc) <= LAT_ACC_THRESHOLD):
           self.filtered_points.add_point(float(steer), float(lateral_acc))
 
